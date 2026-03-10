@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+    <h1>Event Planner Dashboard</h1>
+
+    <h2>Your Events</h2>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for event in draft_events_list %}
+            <tr>
+                <td>{{ event.title }}</td>
+                <td>{{ event.date }}</td>
+                <td>{{ event.status }}</td>
+                <td>
+                    <a href="{% url 'event_detail' event.id %}" class="btn btn-info">View</a>
+                    <a href="{% url 'delete_event' event.id %}" class="btn btn-info">Delete</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4">You haven't created any events yet.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div class="approved-events">
+        <h2>Approved Events</h2>
+        {% if approved_events_list %}
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Available Tickets</th>
+                        <th>Commission (60%)</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in approved_events_list %}
+                        <tr>
+                            <td>{{ event.title }}</td>
+                            <td>{{ event.available_tickets }}</td>
+                            <td>${{ event.commission|floatformat:2 }}</td>
+                            <td>
+                                <form method="post" action="{% url 'submit_payout' event.id %}">
+                                    {% csrf_token %}
+                                    <button type="submit">Submit Payout</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No approved events found.</p>
+        {% endif %}
+
+    </div>
+    <a href="{% url 'report_issue' %}" class="btn btn-warning">Report an Issue</a>
+</div>
+{% endblock %}

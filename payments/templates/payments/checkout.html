@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Checkout</h1>
+    {% if cart_items %}
+        <h2>Your Cart</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Event</th>
+                    <th>Quantity</th>
+                    <th>Price</th>
+                    <th>Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in cart_items %}
+                    <tr>
+                        <td>{{ item.event.title }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>${{ item.event.price|floatformat:2 }}</td>
+                        <td>${{ item.subtotal|floatformat:2 }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <h3>Total: ${{ total_amount|floatformat:2 }}</h3>
+
+        {% if order %}
+            <!-- Order already created, show payment form -->
+            <h3>Payment Details</h3>
+            <p>Email: {{ order.email }}</p>
+            <p>Phone: {{ order.phone }}</p>
+            
+            <form id="payment-form">
+                {% csrf_token %}
+                <!-- Stripe payment form -->
+                <div id="card-element"></div>
+                <button type="submit">Pay Now</button>
+            </form>
+        {% else %}
+            <!-- First time, show form to create order -->
+            <form method="post" action="{% url 'checkout' %}">
+                {% csrf_token %}
+                <label for="email">Email:</label>
+                <input type="email" name="email" required>
+                <label for="phone">Phone:</label>
+                <input type="text" name="phone" required>
+                <button type="submit">Continue to Payment</button>
+            </form>
+        {% endif %}
+        
+    <script src="https://js.stripe.com/v3/"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            {% if order %}
+            const stripe = Stripe('{{ STRIPE_PUBLIC_KEY }}');
+            const appearance = {
+                theme: 'flat',
+                variables: {
+                    colorPrimary: '#0570de',
+                    colorBackground: '#ffffff',
+                    colorText: '#30313d',
+                    colorDanger: '#df1b41',
+                    borderRadius: '4px',
+                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                    spacingUnit: '2px',
+                }
+            };
+            
+            const elements = stripe.elements({ appearance: appearance });
+            const cardElement = elements.create('card');
+            cardElement.mount('#card-element');
+        
+            document.getElementById('payment-form').addEventListener('submit', async (event) => {
+                event.preventDefault();
+                const { paymentIntent, error } = await stripe.confirmCardPayment(
+                    '{{ client_secret }}',
+                    {
+                        payment_method: {
+                            card: cardElement,
+                        },
+                    }
+                );
+                if (error) {
+                    alert(error.message);
+                } else {
+                    // Post to process_payment to finalize
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = '{% url "process_payment" %}';
+                    const csrfInput = document.createElement('input');
+                    csrfInput.type = 'hidden';
+                    csrfInput.name = 'csrfmiddlewaretoken';
+                    csrfInput.value = '{{ csrf_token }}';
+                    form.appendChild(csrfInput);
+                    document.body.appendChild(form);
+                    form.submit();
+                }
+            });
+            {% endif %}
+        })
+        
+    </script>
+
+    {% else %}
+        <p>Your cart is empty.</p>
+    {% endif %}
+{% endblock %}
+

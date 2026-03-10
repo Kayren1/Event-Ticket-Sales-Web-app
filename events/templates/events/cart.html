@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Your Cart</h1>
+    {% if cart_items %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Event</th>
+                    <th>Quantity</th>
+                    <th>Price</th>
+                    <th>Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in cart_items %}
+                    <tr>
+                        <td>{{ item.event.title }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>${{ item.event.price|floatformat:2 }}</td>
+                        <td>${{ item.subtotal|floatformat:2 }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <h3>Total: ${{ total_amount|floatformat:2 }}</h3>
+        <form method="post" action="{% url 'clear_cart' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary" onclick="return confirm('Are you sure you want to clear your cart?');">Clear Cart</button>
+        </form>
+        <a href="{% url 'checkout' %}" class="btn btn-primary mt-3">Proceed to Checkout</a>
+    {% else %}
+        <p>Your cart is empty.</p>
+        <a href="{% url 'index' %}" class="btn btn-primary">Browse Events</a>
+    {% endif %}
+{% endblock %}

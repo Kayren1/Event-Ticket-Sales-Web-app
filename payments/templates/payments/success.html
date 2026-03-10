@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Payment Successful</h2>
+<p>{{ messages }}</p>
+<h3>Order Summary</h3>
+<p>Order ID: {{ order.id }}</p>
+<p>Total Amount: ${{ order.total_amount }}</p>
+<ul>
+    {% for ticket in order.tickets.all %}
+        <li>{{ ticket.event.title }} - Ticket Code: {{ ticket.code }}</li>
+    {% endfor %}
+</ul>
+<p><a href="{{ ticket_url }}">View Your Tickets</a></p>
+<p>Thank you for your payment!</p>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+    <h1>Verify Ticket ID</h1>
+    <form method="post">
+        {% csrf_token %}
+        <input type="text" name="code" placeholder="Enter ticket code" class="form-control mb-3">
+        <button type="submit" class="btn btn-primary">Verify</button>
+    </form>
+    <div id="qr-reader">
+        <h1>Scan Ticket QR Code</h1>
+        {% if error %}
+            <p style="color: red;">{{ error }}</p>
+        {% else %}
+            <video id="video" width="300" height="200" style="border: 1px solid black;"></video>
+            <canvas id="canvas" style="display: none;"></canvas>
+            <p id="result"></p>
+            <button id="startScan">Start Scanning</button>
+        {% endif %}
+    </div>
+</div>
+
+{% block extra_js %}
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script>
+        const video = document.getElementById('video');
+        const canvasElement = document.getElementById('canvas');
+        const canvas = canvasElement.getContext('2d');
+        const resultElement = document.getElementById('result');
+        const startScanButton = document.getElementById('startScan');
+
+        startScanButton.addEventListener('click', async () => {
+            // Request camera access
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+                .then(stream => {
+                    video.srcObject = stream;
+                    video.setAttribute('playsinline', true);
+                    video.play();
+                    requestAnimationFrame(tick);
+                })
+                .catch(error => console.error('Error accessing camera:', error));
+
+            // Start scanning
+            function tick() {
+                canvasElement.height = video.videoHeight;
+                canvasElement.width = video.videoWidth;
+                canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+                const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+                if (code) {
+                    // Handle the scanned QR code
+                    console.log('QR Code detected:', code.data);
+                    // QR code detected, validate ticket
+                    fetch('/verify_ticket/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-CSRFToken': '{{ csrf_token }}',
+                        },
+                        body: `ticket_code=${encodeURIComponent(code.data)}`
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        resultElement.textContent = data.message;
+                        resultElement.style.color = data.status === 'success' ? 'green' : 'red';
+                        if (data.status === 'success') {
+                            // Stop scanning after successful validation
+                            video.srcObject.getTracks().forEach(track => track.stop());
+                        } else {
+                        alert('Invalid or expired ticket.');
+                        }
+                    })
+                    .catch(error => console.error('Error verifying ticket:', error));
+                }
+            }
+            requestAnimationFrame(tick);
+        });
+    </script>
+{% endblock %}
+{% endblock %}

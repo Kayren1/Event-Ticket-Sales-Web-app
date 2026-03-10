@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="category">
+        <!-- templates/events/event_list.html -->
+    <form method="get">
+        <select name="category">
+            <option value="">All Categories</option>
+            {% for choice in EVENT_CATEGORY_CHOICES %}
+                <option value="{{ choice.0 }}">{{ choice.1 }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit">Filter</button>
+    </form>
+</div>
+{% for event in events %}
+<div class="events">
+    <h2>Events Category</h2>
+    {% if approved_events_list %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Category</th>
+                    <th>Date</th>
+                    <th>Location</th>
+                    <th>Price</th>
+                    <th>Available Tickets</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for event in approved_events_list %}
+                    <tr>
+                        <td>{{ event.title }}</td>
+                        <td>{{ event.get_category_display }}</td>
+                        <td>{{ event.start_datetime|date:"F j, Y, g:i a" }}</td>
+                        <td>{{ event.location }}</td>
+                        <td>${{ event.price }}</td>
+                        <td>{{ event.available_tickets }}</td>
+                        <td>
+                            <a href="{% url 'event_detail' event.id %}" class="btn btn-info">View</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No events available.</p>
+    {% endif %}
+</div>
+{% endfor %}
+{% endblock %}

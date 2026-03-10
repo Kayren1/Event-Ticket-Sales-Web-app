@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block content %}
+    <div class="container">
+        <h1>Search Events</h1>
+        <div class="filter-section">
+            <form method="get">
+                <h3>Filters</h3>
+                <div>
+                    <h4>Categories</h4>
+                    {% for category in all_categories %}
+                        <label>
+                            <input type="checkbox" name="categories" value="{{ category.0 }}"
+                                {% if category.0 in selected_categories %}checked{% endif %}>
+                            {{ category.1 }}
+                        </label><br>
+                    {% endfor %}
+                </div>
+                <div>
+                    <h4>Created by</h4>
+                    <select name="created_by">
+                        <option value="">All Creators</option>
+                        {% for creator in all_creators %}
+                            <option value="{{ creator.username }}"
+                                    {% if creator.username == selected_creator %}selected{% endif %}>
+                                {{ creator.username }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit">Apply Filters</button>
+            </form>
+        </div>
+        <div class="results-section">
+            <h2>Search Results</h2>
+            {% if events %}
+                {% for event in events %}
+                    <div class="event">
+                        <h3>{{ event.title }}</h3>
+                        <p><strong>Category:</strong> {{ event.get_category_display }}</p>
+                        <p><strong>Created by:</strong> {{ event.created_by.username }}</p>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p>No events found matching the selected filters.</p>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}

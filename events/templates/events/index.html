@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="hero">
+    <div id="eventCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="5000" data-bs-pause="false">
+        <div class="carousel-inner">
+            {% for event in events %}
+            <div class="carousel-item {% if forloop.first %}active{% endif %}">
+                {% if event.image %}
+                    <img src="{{ event.image.url }}" alt="{{ event.title }}" class="event-image">
+                {% else %}
+                    <img src="https://via.placeholder.com/300x200" alt="No Image Available" class="event-image">
+                {% endif %}
+                <div class="carousel-caption d-none d-md-block bg-dark bg-opacity-50 rounded p-3">
+                    <h5><a href="{% url 'event_detail' event.id %}">{{ event.title }}</a></h5>
+                    <p id="countdown-{{ event.id }}" class="h6"></p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <button class="carousel-control-prev" type="button" data-bs-target="#eventCarousel" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon"></span>
+            <span class="visually-hidden">Previous</span>
+        </button>
+        <button class="carousel-control-next" type="button" data-bs-target="#eventCarousel" data-bs-slide="next">
+            <span class="carousel-control-next-icon"></span>
+            <span class="visually-hidden">Next</span>
+        </button>
+    </div>
+</div>
+<div class="container">
+    <h1>Events</h1>
+    <div class="row">
+        {% for event in events %}
+        <div class="col-md-4 content">
+            <div class="card">
+                {% if event.image %}
+                    <img src="{{ event.image.url }}" alt="{{ event.title }}" class="event-image card-img">
+                {% else %}
+                    <img src="https://via.placeholder.com/300x200" alt="No Image Available" class="event-image">
+                {% endif %}
+                <div class="card-body">
+                    <h5 class="card-title"><a href="{% url 'event_detail' event.id %}">{{ event.title }}</a></h5>
+                    <h3 class="card-category"><strong>Category:</strong>{{ event.get_category_display }}</h3>
+                    <p>Price: ${{ event.price }}</p>
+                    <p>Available Tickets: {{ event.available_tickets }}</p>
+                    <p>Published {{ event.date }} {{ event.time }}</p>
+                    {% if event.available_tickets > 0 %}
+                    <div class="card-btns">
+                        <form method="post" action="{% url 'add_to_cart' event.id %}">
+                            {% csrf_token %}
+                            <label for="quantity">Qty:</label>
+                            <input type="number" name="quantity" id="quantity" value="1" min="1" max="{{ event.available_tickets }}">
+                            <button type="submit" class="btn btn-primary">Add to Cart</button>
+                        </form>
+                
+                        <form method="post" action="{% url 'buy_now' event.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-success">Buy Now</button>
+                        </form>
+                    </div>
+                    {% else %}
+                    <p class="sold-out">Sold Out</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

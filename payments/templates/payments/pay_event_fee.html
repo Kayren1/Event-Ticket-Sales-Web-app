@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Pay Event Creation Fee</h1>
+    <p>Event: {{ event.title }}</p>
+    <p>Creation Fee: ${{ creation_fee|floatformat:2 }}</p>
+
+    {% if error %}
+        <p style="color: red;">{{ error }}</p>
+    {% else %}
+
+    <form id="payment-form" method="post">
+        {% csrf_token %}
+        <div id="card-element"></div>
+        <button type="submit">Pay Now</button>
+    </form>
+    {% endif %}
+
+    <script src="https://js.stripe.com/v3/"></script>
+    <script>
+        const stripe = Stripe('{{ STRIPE_PUBLIC_KEY }}');
+        const elements = stripe.elements();
+        const cardElement = elements.create('card');
+        cardElement.mount('#card-element');
+
+        const form = document.getElementById('payment-form');
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const { paymentIntent, error } = await stripe.confirmCardPayment(
+                '{{ client_secret }}',
+                {
+                    payment_method: {
+                        card: cardElement,
+                    },
+                }
+            );
+            if (error) {
+                alert(error.message);
+            } else if (paymentIntent.status === 'succeeded') {
+                window.location.href = "{% url 'event_fee_success' event.id %}";
+            }
+        });
+    </script>
+{% endblock %}

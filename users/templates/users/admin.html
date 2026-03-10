@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+    <h1>Admin Dashboard</h1>
+
+    <!-- Analytics Section -->
+    <h2>Analytics</h2>
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Total Sales</h5>
+                    <p class="card-text">${{ total_sales }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Total Events</h5>
+                    <p class="card-text">{{ event_count }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Total Tickets Sold</h5>
+                    <p class="card-text">{{ ticket_count }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pending Events Section -->
+    <h2 class="mt-4">Pending Events for Approval</h2>
+    {% if pending_events %}
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Created By</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for event in pending_events %}
+                    <tr>
+                        <td>{{ event.title }}</td>
+                        <td>{{ event.created_by.username }}</td>
+                        <td>
+                            <a href="{% url 'approve_event' event.id %}" class="btn btn-success btn-sm">Approve</a>
+                            <a href="{% url 'reject_event' event.id %}" class="btn btn-danger btn-sm">Reject</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No pending events for approval.</p>
+    {% endif %}
+
+    <!-- New Approved Events Section -->
+    <div class="approved-events">
+        <h2>Approved Events</h2>
+        {% if approved_events_list %}
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Date</th>
+                        <th>Location</th>
+                        <th>Price</th>
+                        <th>Available Tickets</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in approved_events_list %}
+                        <tr>
+                            <td>{{ event.title }}</td>
+                            <td>{{ event.date }} at {{ event.time }}</td>
+                            <td>{{ event.location }}</td>
+                            <td>${{ event.price }}</td>
+                            <td>{{ event.available_tickets }}</td>
+                            <td>
+                                <a href="{% url 'edit_event' event.id %}" class="btn btn-primary">Edit</a>
+                                <a href="{% url 'delete_event' event.id %}" class="btn btn-danger">Delete</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No approved events available.</p>
+        {% endif %}
+    </div>
+
+    <!--<div class="commissions"></div>-->
+    <h2>Commission Requests</h2>
+    {% if commission_requests %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Event</th>
+                    <th>Planner</th>
+                    <th>Commission Amount</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for request in commission_requests %}
+                    <tr>
+                        <td>{{ request.event.title }}</td>
+                        <td>{{ request.planner.username }}</td>
+                        <td>${{ request.commission_amount|floatformat:2 }}</td>
+                        <td>{{ request.status }}</td>
+                        <td>
+                            <form method="post" action="{% url 'approve_payout' request.id %}">
+                                {% csrf_token %}
+                                <button type="submit">Approve</button>
+                            </form>
+                            <form method="post" action="{% url 'reject_payout' request.id %}">
+                                {% csrf_token %}
+                                <button type="submit">Reject</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No commission requests found.</p>
+    {% endif %}
+
+    <!-- Reports Section -->
+    <h2 class="mt-4">Reported Issues</h2>
+    {% if reports %}
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Reported By</th>
+                    <th>Message</th>
+                    <th>Created At</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for report in reports %}
+                    <tr>
+                        <td>{{ report.user.username }}</td>
+                        <td>{{ report.message }}</td>
+                        <td>{{ report.created_at }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No reported issues.</p>
+    {% endif %}
+</div>
+{% endblock %}
