@@ -1,0 +1,92 @@
+# Django
+*.py[cod]
+*$py.class
+__pycache__/
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Django migrations (optional - keep in repo usually)
+# migrations/
+
+# Environment
+.env
+.env.local
+.env.*.local
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+db.sqlite3
+db.sqlite3-journal
+
+# Media and static files (varies by setup)
+/media/
+/staticfiles/
+# Uncomment if you want to ignore static files:
+# /static/
+
+# Logs
+*.log
+logs/
+/tmp/
+/temp/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Testing
+.coverage
+.pytest_cache/
+htmlcov/
+
+# Node (if using npm)
+node_modules/
+package-lock.json
+yarn.lock
+
+# OS
+Thumbs.db
+.DS_Store
+
+# IDE specific
+*.sublime-project
+*.sublime-workspace
+
+# Local development
+local_settings.py
+local_env.py
+
+# Vercel
+.vercel/
