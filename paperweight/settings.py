@@ -92,26 +92,28 @@ TEMPLATES = [
 WSGI_APPLICATION = 'paperweight.wsgi.application'
 
 # Database configuration with environment variable support
+import dj_database_url
+
 if 'DATABASE_URL' in os.environ:
-    # For production with cloud database (e.g., AWS RDS, PlanetScale)
-    import dj_database_url
+    # Production with Supabase PostgreSQL
     DATABASES = {
         'default': dj_database_url.config(
             default=os.environ.get('DATABASE_URL'),
             conn_max_age=600,
             conn_health_checks=True,
+            disable_ssl_certificate_verification=False,
         )
     }
 else:
-    # Local development default
+    # Local development default (PostgreSQL)
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.mysql',
+            'ENGINE': 'django.db.backends.postgresql',
             'NAME': os.environ.get('DB_NAME', 'paperweight'),
-            'USER': os.environ.get('DB_USER', 'root'),
+            'USER': os.environ.get('DB_USER', 'postgres'),
             'PASSWORD': os.environ.get('DB_PASSWORD', ''),
             'HOST': os.environ.get('DB_HOST', 'localhost'),
-            'PORT': os.environ.get('DB_PORT', '3306'),
+            'PORT': os.environ.get('DB_PORT', '5432'),
         }
     }
 

@@ -40,7 +40,7 @@ Your Event Ticket Sales Web App has been successfully prepared for Vercel deploy
   - SECRET_KEY from `DJANGO_SECRET_KEY` env var
   - Dynamic ALLOWED_HOSTS configuration
   - WhiteNoise middleware for static files
-  - Database URL support (PlanetScale, AWS RDS, etc.)
+  - Database URL support (Supabase PostgreSQL, AWS RDS, etc.)
   - Environment-based Stripe and Celery configuration
   - Email configuration from environment variables
   - Production security settings (HTTPS, HSTS, CSP)
@@ -77,7 +77,8 @@ Your Event Ticket Sales Web App has been successfully prepared for Vercel deploy
 
 ### 1. **Prepare Infrastructure** (5-10 minutes)
 ```
-□ Create MySQL database (PlanetScale recommended: planetscale.com)
+□ Create PostgreSQL database on Supabase (supabase.com)
+□ Get DATABASE_URL connection string from Supabase
 □ Create Redis instance (Redis Cloud: redis.com/cloud)
 □ Set up Stripe account (stripe.com)
 □ Note down all connection strings and API keys
@@ -124,7 +125,7 @@ python -c "from django.core.management.utils import get_random_secret_key; print
 ```
 
 Copy from `.env.example` and populate with your values:
-- Database URL from PlanetScale/AWS RDS
+- Database URL from Supabase (PostgreSQL connection string)
 - Redis URL from Redis Cloud/Upstash  
 - Stripe API keys from Stripe Dashboard
 - Email credentials (Gmail app password recommended)

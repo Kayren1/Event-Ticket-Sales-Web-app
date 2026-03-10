@@ -8,23 +8,22 @@ Before deploying to Vercel, ensure you have:
 
 1. **Vercel Account**: Sign up at [vercel.com](https://vercel.com)
 2. **Git Repository**: Your code pushed to GitHub, GitLab, or Bitbucket
-3. **Cloud Database**: A MySQL database hosted on a service like:
-   - [PlanetScale](https://planetscale.com/) (recommended for MySQL)
-   - [AWS RDS](https://aws.amazon.com/rds/)
-   - [DigitalOcean Managed Databases](https://www.digitalocean.com/products/managed-databases/)
+3. **Supabase Project**: PostgreSQL database hosted on [supabase.com](https://supabase.com) (free tier available)
 4. **Redis Instance** (for Celery):
-   - [Redis Cloud](https://redis.com/cloud/overview/) (recommended)
-   - [Upstash Redis](https://upstash.com/)
+   - [Redis Cloud](https://redis.com/cloud/overview/) (recommended, free tier available)
+   - [Upstash Redis](https://upstash.com/) (serverless, free tier)
    - [AWS ElastiCache](https://aws.amazon.com/elasticache/)
 
-## Step 1: Set Up Cloud Database
+## Step 1: Set Up Supabase Database
 
-### Using PlanetScale (Highly Recommended for MySQL)
+### Using Supabase (PostgreSQL)
 
-1. Create a PlanetScale account at [planetscale.com](https://planetscale.com)
-2. Create a new database called "paperweight"
-3. Create a password and generate a connection string
-4. The connection string will look like: `mysql://username:password@aws.connect.psdb.cloud/paperweight?sslaccept=strict`
+1. Create a Supabase account at [supabase.com](https://supabase.com)
+2. Create a new project (PostgreSQL 14+)
+3. Wait for the database to initialize
+4. Go to **Project Settings** → **Database** → **Connection string**
+5. Copy the connection string (looks like: `postgresql://postgres:password@db.xxxxx.supabase.co:5432/postgres`)
+6. Make sure to replace `[YOUR-PASSWORD]` with your actual database password
 
 ## Step 2: Set Up Redis (For Celery)
 
@@ -81,7 +80,7 @@ In your Vercel project dashboard:
 DJANGO_DEBUG=False
 DJANGO_SECRET_KEY=<generate-a-new-secure-key>
 ALLOWED_HOSTS=your-domain.vercel.app,your-custom-domain.com
-DATABASE_URL=<your-planetscale-connection-string>
+DATABASE_URL=<your-supabase-connection-string>
 STRIPE_PUBLIC_KEY=<your-stripe-key>
 STRIPE_SECRET_KEY=<your-stripe-secret>
 STRIPE_WEBHOOK_SECRET=<your-stripe-webhook>
@@ -164,8 +163,14 @@ Check your deployment status:
 Make sure your `DATABASE_URL` is correct and the database is accessible:
 
 ```bash
-mysql -h <host> -u <user> -p <database>
+# Test connection string format
+psql "postgresql://postgres:password@db.xxxxx.supabase.co:5432/postgres"
 ```
+
+Also ensure:
+- You've replaced `[YOUR-PASSWORD]` with your actual database password
+- You're using the PostgreSQL connection string, not MySQL
+- Network access is allowed (Supabase should allow all by default)
 
 ### Static Files Not Loading
 
@@ -219,16 +224,17 @@ If hitting memory limits, increase in `vercel.json`:
 
 ## Cost Considerations
 
-- **Vercel**: Free tier available, charges for usage beyond limits
-- **PlanetScale**: Free tier (3 branches), paid for additional resources
-- **Redis Cloud**: Free tier (30 MB), paid for larger databases
+- **Vercel**: Free tier available, charges for usage beyond limits (~$0-15/month typical)
+- **Supabase**: Free tier (500MB storage, 2GB bandwidth), paid plans start at $25/month
+- **Redis Cloud**: Free tier (30 MB), paid for larger databases (~$5-50/month typical)
 - **Stripe**: 2.9% + $0.30 per transaction (US)
 
 ## Support
 
 - Vercel Docs: https://vercel.com/docs
 - Django Docs: https://docs.djangoproject.com/
-- PlanetScale Help: https://planetscale.com/help
+- Supabase Help: https://supabase.com/docs
+- Redis Cloud Docs: https://docs.redis.com/latest/
 - Stripe Documentation: https://stripe.com/docs
 
 ## Next Steps After Deployment

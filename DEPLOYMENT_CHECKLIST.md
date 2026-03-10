@@ -31,12 +31,13 @@ Use this checklist to ensure your project is ready for Vercel deployment.
   - [ ] Celery configuration uses environment variables
 
 ### Infrastructure Setup
-- [ ] Cloud database created (PlanetScale, AWS RDS, etc.)
-  - [ ] Database name: `paperweight`
-  - [ ] Connection string obtained
-  - [ ] Database is accessible/tested
+- [ ] Cloud database created (Supabase recommended: supabase.com)
+  - [ ] New Supabase project created
+  - [ ] Database connection string obtained
+  - [ ] Password set and confirmed
+  - [ ] Connection tested locally
 
-- [ ] Redis instance created (Redis Cloud, Upstash, etc.)
+- [ ] Redis instance created (Redis Cloud: redis.com/cloud)
   - [ ] Redis URL obtained
   - [ ] Connection tested
 
