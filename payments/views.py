@@ -12,7 +12,8 @@ from events.models import CreationFeePayment, Event, Order, Ticket  # Assuming E
 from django.contrib import messages
 from notifications.tasks import send_payment_confirmation
 
-stripe.api_key = settings.STRIPE_SECRET_KEY
+if settings.STRIPE_SECRET_KEY:
+    stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
 

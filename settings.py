@@ -130,8 +130,9 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 
 # Stripe settings
-STRIPE_TEST_PUBLIC_KEY = 'your_stripe_public_key'
-STRIPE_TEST_SECRET_KEY = 'your_stripe_secret_key'
+STRIPE_PUBLIC_KEY = os.getenv('STRIPE_PUBLIC_KEY')
+STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY')
+STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET')
 
 # QR Code settings
 QR_CODE_PATH = os.path.join(MEDIA_ROOT, 'qrcodes')
