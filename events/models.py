@@ -1,50 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
-from django.shortcuts import render
-from django.db import migrations
 from django.core.exceptions import ValidationError
-from django.db import migrations
-from django.db import models
-
-def set_default_datetimes(apps, schema_editor):
-    Event = apps.get_model('events', 'Event')
-    for event in Event.objects.all():
-        if event.date:
-            start_time = timezone.datetime.combine(event.date, timezone.datetime.min.time())
-            end_time = timezone.datetime.combine(event.date, timezone.datetime.max.time())
-            event.start_datetime = timezone.make_aware(start_time, timezone.get_default_timezone())
-            event.end_datetime = timezone.make_aware(end_time, timezone.get_default_timezone())
-            event.save()
-
-class Migration(migrations.Migration):
-    dependencies = [
-        ('events', '0001_initial'),  # Adjust based on your previous migration
-    ]
-    operations = [
-        migrations.AddField(
-            model_name='event',
-            name='start_datetime',
-            field=models.DateTimeField(null=True),
-        ),
-        migrations.AddField(
-            model_name='event',
-            name='end_datetime',
-            field=models.DateTimeField(null=True),
-        ),
-        migrations.RunPython(set_default_datetimes),
-        migrations.AlterField(
-            model_name='event',
-            name='start_datetime',
-            field=models.DateTimeField(),
-        ),
-        migrations.AlterField(
-            model_name='event',
-            name='end_datetime',
-            field=models.DateTimeField(),
-        ),
-    ]
-
 
 class Event(models.Model):
     STATUS_CHOICES = [
@@ -53,7 +10,7 @@ class Event(models.Model):
         ('approved', 'Approved'),
         ('rejected', 'Rejected'),
     ]
-    CATEGORY_CHOICES = [
+    CATEGORIES = [
         ('concert', 'Concert'),
         ('conference', 'Conference'),
         ('festival', 'Festival'),
@@ -69,6 +26,7 @@ class Event(models.Model):
         ('networking', 'Networking'),
         ('other', 'Other'),
     ]
+    CATEGORY_CHOICES = CATEGORIES
     title = models.CharField(max_length=200)
     description = models.TextField()
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='other')
@@ -83,10 +41,26 @@ class Event(models.Model):
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='draft')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)  # Soft delete field
+
+    class Manager(models.Manager):
+        """Custom manager to exclude soft-deleted events."""
+        def get_queryset(self):
+            return super().get_queryset().filter(deleted_at__isnull=True)
+    
+    objects = Manager()
+    all_objects = models.Manager()  # Access all events including deleted
 
     def clean(self):
         if self.start_datetime >= self.end_datetime:
             raise ValidationError("Start datetime must be before end datetime.")
+        if self.start_datetime < timezone.now():
+            raise ValidationError("Event start date cannot be in the past.")
+
+    def soft_delete(self):
+        """Soft delete the event."""
+        self.deleted_at = timezone.now()
+        self.save()
 
     def save(self, *args, **kwargs):
         self.clean()
@@ -167,6 +141,9 @@ class Report(models.Model):
 class NewsletterSubscriber(models.Model):
     email = models.EmailField(unique=True)
     subscribed_at = models.DateTimeField(auto_now_add=True)
+    token = models.CharField(max_length=100, blank=True, null=True)  # Email verification token
+    verified = models.BooleanField(default=False)  # Email verification status
+    unsubscribed_at = models.DateTimeField(null=True, blank=True)  # Unsubscribe timestamp
 
     def __str__(self):
         return self.email

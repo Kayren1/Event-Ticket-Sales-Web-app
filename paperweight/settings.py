@@ -106,12 +106,17 @@ if 'DATABASE_URL' in os.environ:
     }
 else:
     # Local development default (PostgreSQL)
+    # WARNING: Set DB_PASSWORD in production (currently defaults to empty string)
+    db_password = os.environ.get('DB_PASSWORD', '')
+    if not db_password and not DEBUG:
+        raise ValueError('DB_PASSWORD environment variable must be set in production')
+    
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': os.environ.get('DB_NAME', 'paperweight'),
             'USER': os.environ.get('DB_USER', 'postgres'),
-            'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+            'PASSWORD': db_password,
             'HOST': os.environ.get('DB_HOST', 'localhost'),
             'PORT': os.environ.get('DB_PORT', '5432'),
         }
@@ -158,10 +163,6 @@ STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'  # For collectstatic
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-
-# Media files configuration
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
 
 # Stripe Configuration
 STRIPE_PUBLIC_KEY = os.environ.get('STRIPE_PUBLIC_KEY', 'pk_test_51R5S6vG6zMRuLBLHFu3NiHIwfTjWntRk7OARlVX0jbvx3WqSVEYTcTapriKVwr63nSbtZNseCLvRZOJlm15LZOCj00zYDi1BSz')

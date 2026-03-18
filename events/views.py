@@ -1,16 +1,18 @@
+import logging
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 from django.http import JsonResponse, HttpResponseBadRequest
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.contrib.auth.models import User
 from .models import NewsletterSubscriber, Event, Order, Ticket, Report, CommissionRequest
 from decimal import Decimal
 from .forms import EventForm, ReportForm
-from .utils import process_order
 from .utils import get_categorized_events
 from notifications.tasks import send_event_approval_notification
+
+logger = logging.getLogger(__name__)
 
 
 def search(request):
@@ -23,10 +25,15 @@ def search(request):
 
     # Apply category filter if provided
     if categories and categories != ['']:
-        events = events.filter(category__in=categories)
+        # Validate category input - only allow valid categories
+        valid_categories = [cat[0] for cat in Event.CATEGORY_CHOICES]
+        categories = [cat for cat in categories if cat in valid_categories]
+        if categories:
+            events = events.filter(category__in=categories)
 
     # Apply creator filter if provided
-    if created_by:
+    # Validate created_by input - max 50 chars alphanumeric + underscore
+    if created_by and len(created_by) <= 50 and created_by.replace('_', '').replace('-', '').isalnum():
         events = events.filter(created_by__username=created_by)
 
     # Prepare filter options for the template
@@ -151,6 +158,11 @@ def event_fee_success(request, event_id):
 @login_required
 def edit_event(request, event_id):
     event = get_object_or_404(Event, id=event_id)
+    # Check if user owns the event (permission check)
+    if event.created_by != request.user and not request.user.is_superuser:
+        messages.error(request, 'You do not have permission to edit this event.')
+        return redirect('eventplanner_dashboard')
+    
     if request.method == 'POST':
         form = EventForm(request.POST, request.FILES, instance=event)
         if form.is_valid():
@@ -163,9 +175,15 @@ def edit_event(request, event_id):
 @login_required
 def delete_event(request, event_id):
     event = get_object_or_404(Event, id=event_id)
+    # Check if user owns the event (permission check)
+    if event.created_by != request.user and not request.user.is_superuser:
+        messages.error(request, 'You do not have permission to delete this event.')
+        return redirect('eventplanner_dashboard')
+    
     if request.method == 'POST':
         event.delete()
-    return redirect('admin_dashboard')
+        messages.success(request, 'Event deleted successfully.')
+        return redirect('admin_dashboard')
     return render(request, 'events/delete_confirm.html', {'event': event})
 
 

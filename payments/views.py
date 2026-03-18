@@ -6,11 +6,15 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.conf import settings
 from django.utils import timezone
 from django.db.models import F
+from django.db import transaction
 from datetime import timedelta
-from events.utils import process_order  # Assuming this function exists in events app
-from events.models import CreationFeePayment, Event, Order, Ticket  # Assuming Event model exists
+from events.models import CreationFeePayment, Event, Order, Ticket
 from django.contrib import messages
+from django.http import JsonResponse
 from notifications.tasks import send_payment_confirmation
+from django.views.decorators.csrf import csrf_exempt
+
+logger = logging.getLogger(__name__)
 
 if settings.STRIPE_SECRET_KEY:
     stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -40,25 +44,43 @@ def checkout(request):
     for event_id, quantity in cart.items():
         try:
             event = Event.objects.get(id=int(event_id))
+            # Check inventory for each item in cart
+            if event.available_tickets < quantity:
+                messages.error(request, f"Not enough tickets left for {event.title}.")
+                return redirect('view_cart')
             cart_items.append({
                 'event': event,
                 'quantity': quantity,
                 'subtotal': event.price * quantity
             })
         except Event.DoesNotExist:
-            continue
-    if event.available_tickets < quantity:
-            messages.error(request, f"Not enough tickets left for {event.title}.")
-            return redirect('cart')
+            messages.error(request, f"Event with ID {event_id} not found.")
+            return redirect('view_cart')
+    
     # Create PaymentIntent on initial load (GET request)
     payment_intent = None
     order = None
     if 'order_id' in request.session:
-        order = get_object_or_404(Order, id=request.session['order_id'])
-        if order.payment_status in ['incomplete', 'failed']:
-            payment_intent = stripe.PaymentIntent.retrieve(order.payment_intent_id)
-        elif order.payment_status == 'completed':
-            return redirect('payment_success')
+        try:
+            order = get_object_or_404(Order, id=request.session['order_id'])
+            # Check if order has expired
+            if order.expires_at and timezone.now() > order.expires_at:
+                messages.error(request, 'Order has expired. Please start a new checkout.')
+                del request.session['order_id']
+                return redirect('checkout')
+            
+            if order.payment_status in ['incomplete', 'failed']:
+                try:
+                    payment_intent = stripe.PaymentIntent.retrieve(order.payment_intent_id)
+                except stripe.error.StripeError as e:
+                    messages.error(request, f"Error retrieving payment: {str(e)}")
+                    return redirect('checkout')
+            elif order.payment_status == 'completed':
+                return redirect('payment_success')
+        except Exception as e:
+            messages.error(request, 'Error retrieving order. Please try again.')
+            logger.error(f"Error retrieving order: {str(e)}")
+            return redirect('checkout')
 
     if not payment_intent:
         try:
@@ -69,6 +91,7 @@ def checkout(request):
             )
         except stripe.error.StripeError as e:
             messages.error(request, f"Payment setup failed: {str(e)}")
+            logger.error(f"Stripe API error: {str(e)}")
             return render(request, 'payments/checkout.html', {
                 'cart_items': cart_items,
                 'total_amount': total_amount,
@@ -80,16 +103,25 @@ def checkout(request):
         phone = request.POST.get('phone')
         # Orders expire after 24 hours if not completed
         expires_at = timezone.now() + timedelta(hours=24)
-        order = Order.objects.create(
-            email=email,
-            phone=phone,
-            total_amount=total_amount,
-            payment_status='pending',
-            payment_intent_id=payment_intent.id,  # Store the PaymentIntent ID
-            expires_at=expires_at
-        )
-        request.session['order_id'] = order.id
-        request.session.save()  # Explicitly save session
+        
+        # Use transaction.atomic() to prevent race conditions
+        with transaction.atomic():
+            try:
+                order = Order.objects.create(
+                    email=email,
+                    phone=phone,
+                    total_amount=total_amount,
+                    payment_status='pending',
+                    payment_intent_id=payment_intent.id,
+                    expires_at=expires_at
+                )
+                request.session['order_id'] = order.id
+                request.session.save()
+                logger.info(f"Order {order.id} created for {email}")
+            except Exception as e:
+                messages.error(request, 'Error creating order. Please try again.')
+                logger.error(f"Error creating order: {str(e)}")
+                return redirect('checkout')
 
     context = {
         'cart_items': cart_items,
@@ -171,42 +203,56 @@ def process_payment(request):
             messages.error(request, 'Order not found. Please try again.')
             return redirect('checkout')
 
-        order = get_object_or_404(Order, id=order_id)
-        cart = request.session.get('cart', {})
-
         try:
-            # Mark payment as completed and create tickets
-            order.payment_status = 'completed'
-            order.save()
+            order = get_object_or_404(Order, id=order_id)
+            
+            # Check if order has expired
+            if order.expires_at and timezone.now() > order.expires_at:
+                messages.error(request, 'Order has expired. Please start a new checkout.')
+                return redirect('checkout')
+            
+            cart = request.session.get('cart', {})
 
-            # Create tickets for each item in cart
-            for event_id, quantity in cart.items():
-                event = Event.objects.get(id=int(event_id))
-                for _ in range(quantity):
-                    ticket = Ticket.objects.create(
-                        event=event,
-                        order=order,
-                        code=f'TICKET-{order.id}-{event_id}',
-                        status='valid',
-                    )
-                event.available_tickets -= quantity
-                event.save()
+            # Use transaction.atomic() to prevent race conditions
+            with transaction.atomic():
+                # Mark payment as completed and create tickets
+                order.payment_status = 'completed'
+                order.save()
 
-            request.session['last_order_id'] = order.id
-            request.session['cart'] = {}
-            send_payment_confirmation.delay(order.id, order.email)
-            messages.success(request, 'Payment successful! Your tickets have been generated.')
-            return redirect('payment_success')
+                # Create tickets for each item in cart
+                for event_id, quantity in cart.items():
+                    try:
+                        event = Event.objects.get(id=int(event_id))
+                        for _ in range(quantity):
+                            ticket = Ticket.objects.create(
+                                event=event,
+                                order=order,
+                                code=f'TICKET-{order.id}-{event_id}',
+                                status='valid',
+                            )
+                        # Atomic inventory update using F() expression
+                        event.available_tickets = F('available_tickets') - quantity
+                        event.save()
+                    except Event.DoesNotExist:
+                        messages.error(request, f"Event {event_id} not found.")
+                        logger.error(f"Event {event_id} not found for ticket creation")
+                        return redirect('checkout')
+
+                request.session['last_order_id'] = order.id
+                request.session['cart'] = {}
+                logger.info(f"Payment processed for order {order.id} - {len(cart)} event(s)")
+                send_payment_confirmation.delay(order.id, order.email)
+                messages.success(request, 'Payment successful! Your tickets have been generated.')
+                return redirect('payment_success')
 
         except Exception as e:
             order.payment_status = 'failed'
             order.save()
             messages.error(request, f"Error processing payment: {str(e)}")
+            logger.error(f"Payment processing error for order {order_id}: {str(e)}")
             return redirect('checkout')
 
     return redirect('checkout')
-
-logger = logging.getLogger(__name__)
 
 def payment_success(request):
     order_id = request.session.get('last_order_id')
@@ -218,24 +264,25 @@ def payment_success(request):
         order = Order.objects.get(id=order_id)
     except Order.DoesNotExist:
         messages.error(request, 'Order not found. Please contact support.')
+        logger.error(f"Order {order_id} not found")
         return redirect('index')
+
+    # Check if order has expired
+    if order.expires_at and timezone.now() > order.expires_at:
+        messages.error(request, 'Order has expired.')
+        logger.warning(f"Expired order {order_id} accessed")
+        return redirect('checkout')
 
     if order.payment_status != 'completed':
         messages.error(request, 'Payment not completed. Please try again or contact support.')
         return redirect('checkout')
 
     # Log the successful payment
-    logger.info(f"Payment completed for order {order.id} by {order.email}")
+    logger.info(f"Payment completed for order {order.id} by {order.email} - Amount: {order.total_amount}")
 
     # Clear the cart
     request.session['cart'] = {}
 
-    # Update ticket availability and generate tickets
-    for ticket in order.ticket_set.all():  # Loop through each ticket in the order
-        event = ticket.event  # Get the event tied to the ticket
-        event.available_tickets = F('available_tickets') - 1  # Atomic update
-        event.save()
-        event.refresh_from_db()  # Ensure the latest value is loaded
     # Send confirmation email
     send_payment_confirmation.delay(order.id, order.email)
 

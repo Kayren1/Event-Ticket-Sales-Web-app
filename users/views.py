@@ -1,10 +1,14 @@
+import logging
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Sum, Count
+from decimal import Decimal
 from .forms import LoginForm, EventPlannerRegistrationForm
 from events.models import Event, Report, Order, Ticket, CommissionRequest
+
+logger = logging.getLogger(__name__)
 
 def login_view(request):
     if request.method == 'POST':
@@ -40,6 +44,8 @@ def admin_dashboard(request):
     if not request.user.is_superuser:
         return redirect('index')
     
+    from django.core.paginator import Paginator
+    
     # Analytics: Total sales, total events, total tickets sold
     total_sales = Order.objects.aggregate(total=Sum('total_amount'))['total'] or 0
     total_events = Event.objects.count()
@@ -51,9 +57,19 @@ def admin_dashboard(request):
     approved_events_count = Event.objects.filter(status='approved').count()
     approved_events_list = Event.objects.filter(status='approved')
 
-    # Reports
-    reports = Report.objects.all()
-    commission_requests = CommissionRequest.objects.all()
+    # Add pagination for Reports and CommissionRequests
+    reports_list = Report.objects.all().order_by('-created_at')
+    commission_requests_list = CommissionRequest.objects.all().order_by('-created_at')
+    
+    # Paginate reports (50 per page)
+    reports_paginator = Paginator(reports_list, 50)
+    reports_page = request.GET.get('reports_page', 1)
+    reports = reports_paginator.get_page(reports_page)
+    
+    # Paginate commission requests (50 per page)
+    commission_paginator = Paginator(commission_requests_list, 50)
+    commission_page = request.GET.get('commission_page', 1)
+    commission_requests = commission_paginator.get_page(commission_page)
     
     context = {
         'total_sales': total_sales,
@@ -80,34 +96,56 @@ def submit_payout(request, event_id):
 
 @login_required
 def approve_payout(request, request_id):
+    # Check if user is superuser (permission check)
+    if not request.user.is_superuser:
+        messages.error(request, 'You do not have permission to approve payouts.')
+        return redirect('index')
+    
     commission_request = CommissionRequest.objects.get(id=request_id)
     commission_request.status = 'approved'
     commission_request.save()
+    messages.success(request, 'Payout approved successfully.')
     return redirect('admin_dashboard')
 
 @login_required
 def reject_payout(request, request_id):
+    # Check if user is superuser (permission check)
+    if not request.user.is_superuser:
+        messages.error(request, 'You do not have permission to reject payouts.')
+        return redirect('index')
+    
     commission_request = CommissionRequest.objects.get(id=request_id)
     commission_request.status = 'rejected'
     commission_request.save()
+    messages.success(request, 'Payout rejected successfully.')
     return redirect('admin_dashboard')
 
 @login_required
 def approve_event(request, event_id):
     if not request.user.is_superuser:
         return redirect('index')
-    event = get_object_or_404(Event, id=event_id)
-    event.status = 'approved'
-    event.save()
-    messages.success(request, f"Event '{event.title}' has been approved.")
+    try:
+        event = get_object_or_404(Event, id=event_id)
+        event.status = 'approved'
+        event.save()
+        logger.info(f"Event {event.id} approved by {request.user.username}")
+        messages.success(request, f"Event '{event.title}' has been approved.")
+    except Exception as e:
+        logger.error(f"Error approving event {event_id}: {str(e)}")
+        messages.error(request, 'Error approving event.') 
     return redirect('admin_dashboard')
 
 @login_required
 def reject_event(request, event_id):
     if not request.user.is_superuser:
         return redirect('index')
-    event = get_object_or_404(Event, id=event_id)
-    event.status = 'rejected'
-    event.save()
-    messages.success(request, f"Event '{event.title}' has been rejected.")
+    try:
+        event = get_object_or_404(Event, id=event_id)
+        event.status = 'rejected'
+        event.save()
+        logger.info(f"Event {event.id} rejected by {request.user.username}")
+        messages.success(request, f"Event '{event.title}' has been rejected.")
+    except Exception as e:
+        logger.error(f"Error rejecting event {event_id}: {str(e)}")
+        messages.error(request, 'Error rejecting event.')
     return redirect('admin_dashboard')
